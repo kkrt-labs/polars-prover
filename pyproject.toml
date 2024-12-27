@@ -1,0 +1,13 @@
+[project]
+name = "polars-prover"
+version = "0.1.0"
+description = "Polars based provers for zkVMs"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = ["polars>=1.18.0"]
+
+[tool.uv.workspace]
+members = ["cairo"]
+
+[dependency-groups]
+dev = ["jupyter>=1.1.1"]

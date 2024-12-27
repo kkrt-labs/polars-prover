@@ -1,0 +1,7 @@
+[project]
+name = "cairo"
+version = "0.1.0"
+description = "A polars-rs based cairo prover"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = []

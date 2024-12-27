@@ -1,0 +1,11 @@
+---
+description: Cairo Coding Standards
+globs: 
+alwaysApply: false
+---
+# General guidelines
+
+## Documentation
+
+Be as concise as possible in the documentation.
+Do not add comments everywhere in the code, keep documentation in docstrings.
