@@ -7,64 +7,63 @@ the memory can be compressed Dict[u64, u32] and ids can be mapped back to values
 """
 
 # %% Imports
+import os
 import struct
 
 import polars as pl
+from loguru import logger
 
 # %% Read memory
 file_path = "memory.bin"
 record_size = 40  # 8 bytes address + 32 bytes value
-chunk_size = 40 * 1024 * 1024  # Process 40MB chunks (adjust as needed)
+chunk_size = record_size * 1024 * 1024  # Process 40MB chunks (adjust as needed)
+total_size = os.path.getsize(file_path)
+memory_len = total_size // record_size
 
 unpack_format_string = "<5Q"
 pack_value_format_string = "<4Q"
 
 chunk_dfs = []
-schema = pl.Schema({"address": pl.UInt64, "value_bytes": pl.Binary})
+# Using UInt32 should be enough for the memory, polars will raise in case of overflow
+schema = pl.Schema({"address": pl.UInt32, "value_bytes": pl.Binary})
 
 iteration = 0
-
+total_iterations = memory_len // (chunk_size // record_size)
 with open(file_path, "rb") as f:
     while True:
+        logger.info(f"Processing chunk {iteration}/{total_iterations}")
         chunk = f.read(chunk_size)
-        if iteration > 10:
-            break
         if not chunk:
             break
 
-        # Process records within the chunk
         chunk_addresses = []
-        chunk_value_bytes = []  # Store packed bytes directly
+        chunk_value_bytes = []
         for i in range(0, len(chunk), record_size):
-            # Ensure we don't read past the end of a partial chunk
             if i + record_size > len(chunk):
-                continue  # Or handle partial record if necessary
+                continue
 
             unpacked_data = struct.unpack(
                 unpack_format_string, chunk[i : i + record_size]
             )
             address = unpacked_data[0]
-            value_tuple = unpacked_data[1:]  # Tuple of 4 u64s
+            value_tuple = unpacked_data[1:]
 
             chunk_addresses.append(address)
-            # Pack the value tuple back into bytes
             packed_value = struct.pack(pack_value_format_string, *value_tuple)
             chunk_value_bytes.append(packed_value)
 
-        # Create a DataFrame for this chunk
-        if chunk_addresses:  # Avoid creating empty DataFrames
+        if chunk_addresses:
             chunk_df = pl.DataFrame(
                 {"address": chunk_addresses, "value_bytes": chunk_value_bytes},
                 schema=schema,
             )
-            chunk_dfs.append(chunk_df.lazy())  # Append the lazy frame
+            chunk_dfs.append(chunk_df.lazy())
 
         iteration += 1
-        print(f"Processed {iteration} chunks")
 
-# %% Pack memory
 lazy_memory = pl.concat(chunk_dfs)
 
+# %% Pack memory
 unique_values_df = (
     lazy_memory.select("value_bytes")
     .unique(maintain_order=False)
