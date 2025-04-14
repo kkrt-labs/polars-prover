@@ -15,7 +15,7 @@ from loguru import logger
 load_dotenv()
 base_path = Path(os.environ["BASE_PATH"])
 file_path = base_path / "trace.bin"
-record_size = 24  # 3 registers of 8 bytes
+record_size = 3 * 8  # 3 registers of 8 bytes
 chunk_size = record_size * 1024 * 1024  # Process 24MB chunks (adjust as needed)
 
 unpack_format_string = "<3Q"
