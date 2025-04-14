@@ -5,12 +5,16 @@ See https://github.com/starkware-libs/stwo-cairo/blob/main/stwo_cairo_prover/cra
 # %% Imports
 import os
 import struct
+from pathlib import Path
 
 import polars as pl
+from dotenv import load_dotenv
 from loguru import logger
 
 # %% Read trace
-file_path = "trace.bin"
+load_dotenv()
+base_path = Path(os.environ["BASE_PATH"])
+file_path = base_path / "trace.bin"
 record_size = 24  # 3 registers of 8 bytes
 chunk_size = record_size * 1024 * 1024  # Process 24MB chunks (adjust as needed)
 
@@ -21,6 +25,7 @@ chunk_dfs = []
 schema = pl.Schema({"ap": pl.UInt32, "fp": pl.UInt32, "pc": pl.UInt32})
 
 total_size = os.path.getsize(file_path)
+logger.info(f"Trace file total size: {total_size / (1024 * 1024 * 1024):.2f} GB")
 trace_len = total_size // record_size
 
 iteration = 0

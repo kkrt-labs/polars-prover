@@ -9,15 +9,20 @@ the memory can be compressed Dict[u64, u32] and ids can be mapped back to values
 # %% Imports
 import os
 import struct
+from pathlib import Path
 
 import polars as pl
+from dotenv import load_dotenv
 from loguru import logger
 
 # %% Read memory
-file_path = "memory.bin"
+load_dotenv()
+base_path = Path(os.environ["BASE_PATH"])
+file_path = base_path / "memory.bin"
 record_size = 40  # 8 bytes address + 32 bytes value
 chunk_size = record_size * 1024 * 1024  # Process 40MB chunks (adjust as needed)
 total_size = os.path.getsize(file_path)
+logger.info(f"Memory file total size: {total_size / (1024 * 1024 * 1024):.2f} GB")
 memory_len = total_size // record_size
 
 unpack_format_string = "<5Q"
@@ -67,7 +72,7 @@ lazy_memory = pl.concat(chunk_dfs)
 unique_values_df = (
     lazy_memory.select("value_bytes")
     .unique(maintain_order=False)
-    .with_row_id()
+    .with_row_index()
     .collect(streaming=True)
 )
 
@@ -77,7 +82,7 @@ full_memory_with_ids = (
         on="value_bytes",
         how="inner",
     )
-    .select(["address", "id"])
-    .rename({"id": "value_id"})
+    .select(["address", "index"])
+    .rename({"index": "id"})
     .collect(streaming=True)
 )
