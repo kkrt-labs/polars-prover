@@ -46,9 +46,9 @@ state_transitions = (
             is_elementwise=True,
             return_dtype=pl.Struct(
                 {
-                    "offset0": pl.UInt16,
-                    "offset1": pl.UInt16,
-                    "offset2": pl.UInt16,
+                    "offset0": pl.Int16,
+                    "offset1": pl.Int16,
+                    "offset2": pl.Int16,
                     "dst_base_fp": pl.Boolean,
                     "op0_base_fp": pl.Boolean,
                     "op_1_imm": pl.Boolean,

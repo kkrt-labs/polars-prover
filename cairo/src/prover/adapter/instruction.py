@@ -14,13 +14,13 @@ QM31_OPCODE_EXTENSION = 3
 
 def decode(encoded_instruction: pl.Series) -> pl.Series:
     encoded_instruction_np = encoded_instruction.to_numpy()
-    offset0 = (encoded_instruction_np & (2**OFFSET_BITS - 1)).astype(np.uint16)
-    offset1 = ((encoded_instruction_np >> OFFSET_BITS) & (2**OFFSET_BITS - 1)).astype(
-        np.uint16
-    )
+    offset0 = ((encoded_instruction_np & (2**OFFSET_BITS - 1)) - 2**15).astype(np.int16)
+    offset1 = (
+        ((encoded_instruction_np >> OFFSET_BITS) & (2**OFFSET_BITS - 1)) - 2**15
+    ).astype(np.int16)
     offset2 = (
-        (encoded_instruction_np >> (2 * OFFSET_BITS)) & (2**OFFSET_BITS - 1)
-    ).astype(np.uint16)
+        ((encoded_instruction_np >> (2 * OFFSET_BITS)) & (2**OFFSET_BITS - 1)) - 2**15
+    ).astype(np.int16)
     flags = encoded_instruction_np >> (3 * OFFSET_BITS)
 
     dst_base_fp = (flags & 1).astype(np.bool)
@@ -131,7 +131,6 @@ def opcode(instruction: pl.Expr) -> pl.Expr:
         & opcode_assert_eq.not_()
         & opcode_extension.eq(STONE_OPCODE_EXTENSION)
     )
-    result = pl.when(mask_ret).then(pl.lit("ret_opcode"))
 
     # add ap
     mask_add_ap = (
@@ -162,7 +161,6 @@ def opcode(instruction: pl.Expr) -> pl.Expr:
         # If op_1_imm is True, then offset2 must be 1 (next pc)
         & (op_1_imm.not_() | (offset2 == 1))
     )
-    result = result.when(mask_add_ap).then(pl.lit("add_ap_opcode"))
 
     # jump
     mask_jump_base = (
@@ -177,6 +175,7 @@ def opcode(instruction: pl.Expr) -> pl.Expr:
         & opcode_assert_eq.not_()
         & opcode_extension.eq(STONE_OPCODE_EXTENSION)
     )
+
     mask_jump_rel_imm = mask_jump_base & (
         op_1_imm
         & pc_update_jump_rel
@@ -187,7 +186,6 @@ def opcode(instruction: pl.Expr) -> pl.Expr:
         & (offset1 == -1)
         & (offset2 == 1)
     )
-    result = result.when(mask_jump_rel_imm).then(pl.lit("jump_opcode_rel_imm"))
 
     mask_jump_rel = mask_jump_base & (
         op_1_imm.not_()
@@ -197,7 +195,6 @@ def opcode(instruction: pl.Expr) -> pl.Expr:
         & op0_base_fp
         & (offset1 == -1)
     )
-    result = result.when(mask_jump_rel).then(pl.lit("jump_opcode_rel"))
 
     mask_jump_double_deref = mask_jump_base & (
         op_1_imm.not_()
@@ -205,9 +202,6 @@ def opcode(instruction: pl.Expr) -> pl.Expr:
         & op_1_base_fp.not_()
         & op_1_base_ap.not_()
         & pc_update_jump
-    )
-    result = result.when(mask_jump_double_deref).then(
-        pl.lit("jump_opcode_double_deref")
     )
 
     mask_jump_abs = mask_jump_base & (
@@ -218,7 +212,6 @@ def opcode(instruction: pl.Expr) -> pl.Expr:
         & pc_update_jump
         & (offset1 == -1)
     )
-    result = result.when(mask_jump_abs).then(pl.lit("jump_opcode"))
 
     # call
     mask_call_base = (
@@ -236,6 +229,7 @@ def opcode(instruction: pl.Expr) -> pl.Expr:
         & opcode_assert_eq.not_()
         & opcode_extension.eq(STONE_OPCODE_EXTENSION)
     )
+
     mask_call_rel = mask_call_base & (
         pc_update_jump_rel
         & op_1_imm
@@ -244,7 +238,6 @@ def opcode(instruction: pl.Expr) -> pl.Expr:
         & (offset2 == 1)
         & pc_update_jump.not_()
     )
-    result = result.when(mask_call_rel).then(pl.lit("call_opcode_rel"))
 
     mask_call_abs_fp = mask_call_base & (
         pc_update_jump_rel.not_()
@@ -253,12 +246,10 @@ def opcode(instruction: pl.Expr) -> pl.Expr:
         & op_1_imm.not_()
         & pc_update_jump
     )
-    result = result.when(mask_call_abs_fp).then(pl.lit("call_opcode_op_1_base_fp"))
 
     mask_call_abs_ap = mask_call_base & (
         pc_update_jump_rel.not_() & op_1_base_ap & op_1_imm.not_() & pc_update_jump
     )
-    result = result.when(mask_call_abs_ap).then(pl.lit("call_opcode"))
 
     # jnz
     mask_jnz = (
@@ -279,9 +270,6 @@ def opcode(instruction: pl.Expr) -> pl.Expr:
         & opcode_assert_eq.not_()
         & opcode_extension.eq(STONE_OPCODE_EXTENSION)
     )
-    # Note: For jnz, we can't determine 'taken' without memory access
-    # This will be handled in the next step, using the memory table
-    result = result.when(mask_jnz).then(pl.lit("jnz_opcode"))
 
     # assert equal
     mask_assert_eq_base = (
@@ -296,6 +284,7 @@ def opcode(instruction: pl.Expr) -> pl.Expr:
         & opcode_assert_eq
         & opcode_extension.eq(STONE_OPCODE_EXTENSION)
     )
+
     mask_assert_eq_imm = mask_assert_eq_base & (
         op_1_imm
         & op_1_base_fp.not_()
@@ -304,19 +293,14 @@ def opcode(instruction: pl.Expr) -> pl.Expr:
         & op0_base_fp
         & (offset1 == -1)
     )
-    result = result.when(mask_assert_eq_imm).then(pl.lit("assert_eq_opcode_imm"))
 
     mask_assert_eq_double_deref = mask_assert_eq_base & (
         op_1_imm.not_() & op_1_base_fp.not_() & op_1_base_ap.not_()
-    )
-    result = result.when(mask_assert_eq_double_deref).then(
-        pl.lit("assert_eq_opcode_double_deref")
     )
 
     mask_assert_eq = mask_assert_eq_base & (
         op_1_imm.not_() & (op_1_base_fp | op_1_base_ap) & (offset1 == -1) & op0_base_fp
     )
-    result = result.when(mask_assert_eq).then(pl.lit("assert_eq_opcode"))
 
     # mul
     mask_mul = (
@@ -340,7 +324,6 @@ def opcode(instruction: pl.Expr) -> pl.Expr:
         )
         & (op_1_imm.not_() | (offset2 == 1))
     )
-    result = result.when(mask_mul).then(pl.lit("mul_opcode"))
 
     # add
     mask_add = (
@@ -364,7 +347,6 @@ def opcode(instruction: pl.Expr) -> pl.Expr:
         )
         & (op_1_imm.not_() | (offset2 == 1))
     )
-    result = result.when(mask_add).then(pl.lit("add_opcode"))
 
     # Blake
     mask_blake = (
@@ -384,7 +366,6 @@ def opcode(instruction: pl.Expr) -> pl.Expr:
         )
         & ((op_1_base_fp & op_1_base_ap.not_()) | (op_1_base_fp.not_() & op_1_base_ap))
     )
-    result = result.when(mask_blake).then(pl.lit("blake_opcode"))
 
     # QM31 Add/Mul
     mask_qm31 = (
@@ -404,7 +385,62 @@ def opcode(instruction: pl.Expr) -> pl.Expr:
         )
         & (op_1_imm.not_() | (offset2 == 1))
     )
-    result = result.when(mask_qm31).then(pl.lit("qm31_add_mul_opcode"))
 
-    # Default case for unclassified instructions
-    return result.otherwise(pl.lit("generic_opcode")).cast(pl.Categorical)
+    RET_OPCODE = pl.lit("ret_opcode")
+    ADD_AP_OPCODE = pl.lit("add_ap_opcode")
+    JUMP_OPCODE_REL_IMM = pl.lit("jump_opcode_rel_imm")
+    JUMP_OPCODE_REL = pl.lit("jump_opcode_rel")
+    JUMP_OPCODE_DOUBLE_DEREF = pl.lit("jump_opcode_double_deref")
+    JUMP_OPCODE = pl.lit("jump_opcode")
+    CALL_OPCODE_REL = pl.lit("call_opcode_rel")
+    CALL_OPCODE_OP_1_BASE_FP = pl.lit("call_opcode_op_1_base_fp")
+    CALL_OPCODE = pl.lit("call_opcode")
+    JNZ_OPCODE = pl.lit("jnz_opcode")
+    ASSERT_EQ_OPCODE_IMM = pl.lit("assert_eq_opcode_imm")
+    ASSERT_EQ_OPCODE_DOUBLE_DEREF = pl.lit("assert_eq_opcode_double_deref")
+    ASSERT_EQ_OPCODE = pl.lit("assert_eq_opcode")
+    MUL_OPCODE = pl.lit("mul_opcode")
+    ADD_OPCODE = pl.lit("add_opcode")
+    BLAKE_OPCODE = pl.lit("blake_opcode")
+    QM31_ADD_MUL_OPCODE = pl.lit("qm31_add_mul_opcode")
+    GENERIC_OPCODE = pl.lit("generic_opcode")
+
+    return (
+        pl.when(mask_ret)
+        .then(RET_OPCODE)
+        .when(mask_add_ap)
+        .then(ADD_AP_OPCODE)
+        .when(mask_jump_rel_imm)
+        .then(JUMP_OPCODE_REL_IMM)
+        .when(mask_jump_rel)
+        .then(JUMP_OPCODE_REL)
+        .when(mask_jump_double_deref)
+        .then(JUMP_OPCODE_DOUBLE_DEREF)
+        .when(mask_jump_abs)
+        .then(JUMP_OPCODE)
+        .when(mask_call_rel)
+        .then(CALL_OPCODE_REL)
+        .when(mask_call_abs_fp)
+        .then(CALL_OPCODE_OP_1_BASE_FP)
+        .when(mask_call_abs_ap)
+        .then(CALL_OPCODE)
+        .when(mask_jnz)
+        .then(JNZ_OPCODE)
+        .when(mask_assert_eq_imm)
+        .then(ASSERT_EQ_OPCODE_IMM)
+        .when(mask_assert_eq_double_deref)
+        .then(ASSERT_EQ_OPCODE_DOUBLE_DEREF)
+        .when(mask_assert_eq)
+        .then(ASSERT_EQ_OPCODE)
+        .when(mask_mul)
+        .then(MUL_OPCODE)
+        .when(mask_add)
+        .then(ADD_OPCODE)
+        .when(mask_blake)
+        .then(BLAKE_OPCODE)
+        .when(mask_qm31)
+        .then(QM31_ADD_MUL_OPCODE)
+        .otherwise(GENERIC_OPCODE)
+        .cast(pl.Categorical)
+        .alias("opcode")
+    )
