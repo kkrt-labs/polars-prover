@@ -1,17 +1,40 @@
-"""
-See https://github.com/starkware-libs/stwo-cairo/blob/main/stwo_cairo_prover/crates/adapter/src/memory.rs
-
-The whole purpose of this module is to convert the initial memory from a regular Cairo run, i.e. a Dict[u64, Felt252]
-into a memory efficient representation, where each unique observed value of the memory is associated an id so that
-the memory can be compressed Dict[u64, u32] and ids can be mapped back to values Dict[u32, Felt252].
-"""
-
 import os
 import struct
 from pathlib import Path
 
 import polars as pl
 from loguru import logger
+
+_COL_ADDRESS = "address"
+_COL_VALUE = "value"
+
+# Using UInt32 should be enough for the memory, polars will raise in case of overflow
+ADDRESS = pl.col(_COL_ADDRESS).cast(pl.UInt32)
+VALUE = pl.col(_COL_VALUE).cast(
+    pl.Struct(
+        {
+            "limb_0": pl.UInt64,
+            "limb_1": pl.UInt64,
+            "limb_2": pl.UInt64,
+            "limb_3": pl.UInt64,
+        }
+    )
+)
+VALUE_ZERO = pl.lit({"limb_0": 0, "limb_1": 0, "limb_2": 0, "limb_3": 0})
+
+MEMORY_SCHEMA = pl.Schema(
+    {
+        _COL_ADDRESS: pl.UInt32,
+        _COL_VALUE: pl.Struct(
+            {
+                "limb_0": pl.UInt64,
+                "limb_1": pl.UInt64,
+                "limb_2": pl.UInt64,
+                "limb_3": pl.UInt64,
+            }
+        ),
+    }
+)
 
 
 def read_memory(file_path: Path) -> pl.LazyFrame:
@@ -25,20 +48,6 @@ def read_memory(file_path: Path) -> pl.LazyFrame:
     unpack_format_string = "<5Q"
 
     chunk_dfs = []
-    # Using UInt32 should be enough for the memory, polars will raise in case of overflow
-    schema = pl.Schema(
-        {
-            "address": pl.UInt32,
-            "value": pl.Struct(
-                {
-                    "limb_0": pl.UInt64,
-                    "limb_1": pl.UInt64,
-                    "limb_2": pl.UInt64,
-                    "limb_3": pl.UInt64,
-                }
-            ),
-        }
-    )
 
     iteration = 0
     total_iterations = memory_len // (chunk_size // record_size)
@@ -67,7 +76,7 @@ def read_memory(file_path: Path) -> pl.LazyFrame:
             if chunk_addresses:
                 chunk_df = pl.DataFrame(
                     {"address": chunk_addresses, "value": chunk_value},
-                    schema=schema,
+                    schema=MEMORY_SCHEMA,
                 )
                 chunk_dfs.append(chunk_df.lazy())
 

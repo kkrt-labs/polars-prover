@@ -1,15 +1,20 @@
-"""
-See https://github.com/starkware-libs/stwo-cairo/blob/main/stwo_cairo_prover/crates/adapter/src/vm_import/mod.rs
-
-This is mainly reading the trace.bin file as a dataframe.
-"""
-
 import os
 import struct
 from pathlib import Path
 
 import polars as pl
 from loguru import logger
+
+_COL_AP = "ap"
+_COL_FP = "fp"
+_COL_PC = "pc"
+
+# Using UInt32 should be enough for the trace, polars will raise in case of overflow
+AP = pl.col(_COL_AP).cast(pl.UInt32)
+FP = pl.col(_COL_FP).cast(pl.UInt32)
+PC = pl.col(_COL_PC).cast(pl.UInt32)
+
+TRACE_SCHEMA = pl.Schema({_COL_AP: pl.UInt32, _COL_FP: pl.UInt32, _COL_PC: pl.UInt32})
 
 
 def read_trace(file_path: Path) -> pl.LazyFrame:
@@ -19,8 +24,6 @@ def read_trace(file_path: Path) -> pl.LazyFrame:
     unpack_format_string = "<3Q"
 
     chunk_dfs = []
-    # Using UInt32 should be enough for the trace, polars will raise in case of overflow
-    schema = pl.Schema({"ap": pl.UInt32, "fp": pl.UInt32, "pc": pl.UInt32})
 
     total_size = os.path.getsize(file_path)
     logger.info(f"Trace file total size: {total_size / (1024 * 1024 * 1024):.2f} GB")
@@ -57,7 +60,7 @@ def read_trace(file_path: Path) -> pl.LazyFrame:
             if chunk_ap:  # Avoid creating empty DataFrames
                 chunk_df = pl.DataFrame(
                     {"ap": chunk_ap, "fp": chunk_fp, "pc": chunk_pc},
-                    schema=schema,
+                    schema=TRACE_SCHEMA,
                 )
                 chunk_dfs.append(chunk_df.lazy())  # Append the lazy frame
 
