@@ -7,9 +7,9 @@ from prover.adapter.instruction import (
     OFFSET1,
     OFFSET2,
     OP0_BASE_FP,
-    OP_1_BASE_AP,
-    OP_1_BASE_FP,
-    OP_1_IMM,
+    OP1_BASE_AP,
+    OP1_BASE_FP,
+    OP1_IMM,
     OPCODE_ASSERT_EQ,
     OPCODE_CALL,
     OPCODE_EXTENSION,
@@ -29,7 +29,7 @@ JUMP_OPCODE_REL = pl.lit("jump_opcode_rel")
 JUMP_OPCODE_DOUBLE_DEREF = pl.lit("jump_opcode_double_deref")
 JUMP_OPCODE = pl.lit("jump_opcode")
 CALL_OPCODE_REL = pl.lit("call_opcode_rel")
-CALL_OPCODE_OP_1_BASE_FP = pl.lit("call_opcode_op_1_base_fp")
+CALL_OPCODE_OP1_BASE_FP = pl.lit("call_opcode_op_1_base_fp")
 CALL_OPCODE = pl.lit("call_opcode")
 JNZ_OPCODE = pl.lit("jnz_opcode")
 JNZ_OPCODE_TAKEN = pl.lit("jnz_opcode_taken")
@@ -55,9 +55,9 @@ _mask_ret = (
     & (OFFSET2 == -1)
     & DST_BASE_FP
     & OP0_BASE_FP
-    & OP_1_IMM.not_()
-    & OP_1_BASE_FP
-    & OP_1_BASE_AP.not_()
+    & OP1_IMM.not_()
+    & OP1_BASE_FP
+    & OP1_BASE_AP.not_()
     & RES_ADD.not_()
     & RES_MUL.not_()
     & PC_UPDATE_JUMP
@@ -88,17 +88,17 @@ _mask_add_ap = (
     & OPCODE_RET.not_()
     & OPCODE_ASSERT_EQ.not_()
     & OPCODE_EXTENSION.eq(STONE_OPCODE_EXTENSION)
-    # Only one of op_1_imm, op_1_base_fp, OP_1_BASE_AP must be 1
+    # Only one of op_1_imm, op_1_base_fp, OP1_BASE_AP must be 1
     & (
         (
-            OP_1_IMM.cast(pl.UInt8)
-            + OP_1_BASE_FP.cast(pl.UInt8)
-            + OP_1_BASE_AP.cast(pl.UInt8)
+            OP1_IMM.cast(pl.UInt8)
+            + OP1_BASE_FP.cast(pl.UInt8)
+            + OP1_BASE_AP.cast(pl.UInt8)
         )
         == 1
     )
     # If op_1_imm is True, then offset2 must be 1 (next pc)
-    & (OP_1_IMM.not_() | (OFFSET2 == 1))
+    & (OP1_IMM.not_() | (OFFSET2 == 1))
 )
 
 # jump
@@ -116,37 +116,37 @@ _mask_jump_base = (
 )
 
 _mask_jump_rel_imm = _mask_jump_base & (
-    OP_1_IMM
+    OP1_IMM
     & PC_UPDATE_JUMP_REL
     & PC_UPDATE_JUMP.not_()
-    & OP_1_BASE_FP.not_()
-    & OP_1_BASE_AP.not_()
+    & OP1_BASE_FP.not_()
+    & OP1_BASE_AP.not_()
     & OP0_BASE_FP
     & (OFFSET1 == -1)
     & (OFFSET2 == 1)
 )
 
 _mask_jump_rel = _mask_jump_base & (
-    OP_1_IMM.not_()
+    OP1_IMM.not_()
     & PC_UPDATE_JUMP_REL
     & PC_UPDATE_JUMP.not_()
-    & (OP_1_BASE_FP | OP_1_BASE_AP)
+    & (OP1_BASE_FP | OP1_BASE_AP)
     & OP0_BASE_FP
     & (OFFSET1 == -1)
 )
 
 _mask_jump_double_deref = _mask_jump_base & (
-    OP_1_IMM.not_()
+    OP1_IMM.not_()
     & PC_UPDATE_JUMP_REL.not_()
-    & OP_1_BASE_FP.not_()
-    & OP_1_BASE_AP.not_()
+    & OP1_BASE_FP.not_()
+    & OP1_BASE_AP.not_()
     & PC_UPDATE_JUMP
 )
 
 _mask_jump_abs = _mask_jump_base & (
-    OP_1_IMM.not_()
+    OP1_IMM.not_()
     & PC_UPDATE_JUMP_REL.not_()
-    & (OP_1_BASE_FP | OP_1_BASE_AP)
+    & (OP1_BASE_FP | OP1_BASE_AP)
     & OP0_BASE_FP
     & PC_UPDATE_JUMP
     & (OFFSET1 == -1)
@@ -171,23 +171,23 @@ _mask_call_base = (
 
 _mask_call_rel = _mask_call_base & (
     PC_UPDATE_JUMP_REL
-    & OP_1_IMM
-    & OP_1_BASE_FP.not_()
-    & OP_1_BASE_AP.not_()
+    & OP1_IMM
+    & OP1_BASE_FP.not_()
+    & OP1_BASE_AP.not_()
     & (OFFSET2 == 1)
     & PC_UPDATE_JUMP.not_()
 )
 
 _mask_call_abs_fp = _mask_call_base & (
     PC_UPDATE_JUMP_REL.not_()
-    & OP_1_BASE_FP
-    & OP_1_BASE_AP.not_()
-    & OP_1_IMM.not_()
+    & OP1_BASE_FP
+    & OP1_BASE_AP.not_()
+    & OP1_IMM.not_()
     & PC_UPDATE_JUMP
 )
 
 _mask_call_abs_ap = _mask_call_base & (
-    PC_UPDATE_JUMP_REL.not_() & OP_1_BASE_AP & OP_1_IMM.not_() & PC_UPDATE_JUMP
+    PC_UPDATE_JUMP_REL.not_() & OP1_BASE_AP & OP1_IMM.not_() & PC_UPDATE_JUMP
 )
 
 # jnz
@@ -195,9 +195,9 @@ _mask_jnz = (
     (OFFSET1 == -1)
     & (OFFSET2 == 1)
     & OP0_BASE_FP
-    & OP_1_IMM
-    & OP_1_BASE_FP.not_()
-    & OP_1_BASE_AP.not_()
+    & OP1_IMM
+    & OP1_BASE_FP.not_()
+    & OP1_BASE_AP.not_()
     & RES_ADD.not_()
     & RES_MUL.not_()
     & PC_UPDATE_JUMP.not_()
@@ -225,20 +225,20 @@ _mask_assert_eq_base = (
 )
 
 _mask_assert_eq_imm = _mask_assert_eq_base & (
-    OP_1_IMM
-    & OP_1_BASE_FP.not_()
-    & OP_1_BASE_AP.not_()
+    OP1_IMM
+    & OP1_BASE_FP.not_()
+    & OP1_BASE_AP.not_()
     & (OFFSET2 == 1)
     & OP0_BASE_FP
     & (OFFSET1 == -1)
 )
 
 _mask_assert_eq_double_deref = _mask_assert_eq_base & (
-    OP_1_IMM.not_() & OP_1_BASE_FP.not_() & OP_1_BASE_AP.not_()
+    OP1_IMM.not_() & OP1_BASE_FP.not_() & OP1_BASE_AP.not_()
 )
 
 _mask_assert_eq = _mask_assert_eq_base & (
-    OP_1_IMM.not_() & (OP_1_BASE_FP | OP_1_BASE_AP) & (OFFSET1 == -1) & OP0_BASE_FP
+    OP1_IMM.not_() & (OP1_BASE_FP | OP1_BASE_AP) & (OFFSET1 == -1) & OP0_BASE_FP
 )
 
 # mul
@@ -255,13 +255,13 @@ _mask_mul = (
     & OPCODE_EXTENSION.eq(STONE_OPCODE_EXTENSION)
     & (
         (
-            OP_1_IMM.cast(pl.UInt8)
-            + OP_1_BASE_FP.cast(pl.UInt8)
-            + OP_1_BASE_AP.cast(pl.UInt8)
+            OP1_IMM.cast(pl.UInt8)
+            + OP1_BASE_FP.cast(pl.UInt8)
+            + OP1_BASE_AP.cast(pl.UInt8)
         )
         == 1
     )
-    & (OP_1_IMM.not_() | (OFFSET2 == 1))
+    & (OP1_IMM.not_() | (OFFSET2 == 1))
 )
 
 # add
@@ -278,19 +278,19 @@ _mask_add = (
     & OPCODE_EXTENSION.eq(STONE_OPCODE_EXTENSION)
     & (
         (
-            OP_1_IMM.cast(pl.UInt8)
-            + OP_1_BASE_FP.cast(pl.UInt8)
-            + OP_1_BASE_AP.cast(pl.UInt8)
+            OP1_IMM.cast(pl.UInt8)
+            + OP1_BASE_FP.cast(pl.UInt8)
+            + OP1_BASE_AP.cast(pl.UInt8)
         )
         == 1
     )
-    & (OP_1_IMM.not_() | (OFFSET2 == 1))
+    & (OP1_IMM.not_() | (OFFSET2 == 1))
 )
 
 # Blake
 _mask_blake = (
-    OP_1_IMM.not_()
-    & (OP_1_BASE_FP | OP_1_BASE_AP)
+    OP1_IMM.not_()
+    & (OP1_BASE_FP | OP1_BASE_AP)
     & RES_ADD.not_()
     & RES_MUL.not_()
     & PC_UPDATE_JUMP.not_()
@@ -301,7 +301,7 @@ _mask_blake = (
     & OPCODE_RET.not_()
     & OPCODE_ASSERT_EQ.not_()
     & OPCODE_EXTENSION.is_in([BLAKE_OPCODE_EXTENSION, BLAKE_FINALIZE_OPCODE_EXTENSION])
-    & ((OP_1_BASE_FP & OP_1_BASE_AP.not_()) | (OP_1_BASE_FP.not_() & OP_1_BASE_AP))
+    & ((OP1_BASE_FP & OP1_BASE_AP.not_()) | (OP1_BASE_FP.not_() & OP1_BASE_AP))
 )
 
 # QM31 Add/Mul
@@ -316,11 +316,11 @@ _mask_qm31 = (
     & OPCODE_EXTENSION.eq(QM31_OPCODE_EXTENSION)
     & ((RES_ADD & RES_MUL.not_()) | (RES_ADD.not_() & RES_MUL))
     & (
-        (OP_1_IMM & OP_1_BASE_FP.not_() & OP_1_BASE_AP.not_())
-        | (OP_1_IMM.not_() & OP_1_BASE_FP & OP_1_BASE_AP.not_())
-        | (OP_1_IMM.not_() & OP_1_BASE_FP.not_() & OP_1_BASE_AP)
+        (OP1_IMM & OP1_BASE_FP.not_() & OP1_BASE_AP.not_())
+        | (OP1_IMM.not_() & OP1_BASE_FP & OP1_BASE_AP.not_())
+        | (OP1_IMM.not_() & OP1_BASE_FP.not_() & OP1_BASE_AP)
     )
-    & (OP_1_IMM.not_() | (OFFSET2 == 1))
+    & (OP1_IMM.not_() | (OFFSET2 == 1))
 )
 
 OPCODE = (
@@ -339,7 +339,7 @@ OPCODE = (
     .when(_mask_call_rel)
     .then(CALL_OPCODE_REL)
     .when(_mask_call_abs_fp)
-    .then(CALL_OPCODE_OP_1_BASE_FP)
+    .then(CALL_OPCODE_OP1_BASE_FP)
     .when(_mask_call_abs_ap)
     .then(CALL_OPCODE)
     .when(_mask_jnz)

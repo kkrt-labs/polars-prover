@@ -5,36 +5,16 @@ from pathlib import Path
 import polars as pl
 from loguru import logger
 
+DEFAULT_PRIME = 2**251 + 17 * 2**192 + 1
+
 _COL_ADDRESS = "address"
 _COL_VALUE = "value"
 
 # Using UInt32 should be enough for the memory, polars will raise in case of overflow
 ADDRESS = pl.col(_COL_ADDRESS).cast(pl.UInt32)
-VALUE = pl.col(_COL_VALUE).cast(
-    pl.Struct(
-        {
-            "limb_0": pl.UInt64,
-            "limb_1": pl.UInt64,
-            "limb_2": pl.UInt64,
-            "limb_3": pl.UInt64,
-        }
-    )
-)
-VALUE_ZERO = pl.lit({"limb_0": 0, "limb_1": 0, "limb_2": 0, "limb_3": 0})
+VALUE = pl.col(_COL_VALUE).cast(pl.Int128)
 
-MEMORY_SCHEMA = pl.Schema(
-    {
-        _COL_ADDRESS: pl.UInt32,
-        _COL_VALUE: pl.Struct(
-            {
-                "limb_0": pl.UInt64,
-                "limb_1": pl.UInt64,
-                "limb_2": pl.UInt64,
-                "limb_3": pl.UInt64,
-            }
-        ),
-    }
-)
+MEMORY_SCHEMA = pl.Schema({_COL_ADDRESS: pl.UInt32, _COL_VALUE: pl.Int128})
 
 
 def read_memory(file_path: Path) -> pl.LazyFrame:
@@ -53,10 +33,10 @@ def read_memory(file_path: Path) -> pl.LazyFrame:
     total_iterations = memory_len // (chunk_size // record_size)
     with open(file_path, "rb") as f:
         while True:
-            logger.info(f"Processing chunk {iteration}/{total_iterations}")
             chunk = f.read(chunk_size)
             if not chunk:
                 break
+            logger.info(f"Processing chunk {iteration}/{total_iterations}")
 
             chunk_addresses = []
             chunk_value = []
@@ -68,10 +48,18 @@ def read_memory(file_path: Path) -> pl.LazyFrame:
                     unpack_format_string, chunk[i : i + record_size]
                 )
                 address = unpacked_data[0]
-                value_tuple = unpacked_data[1:]
+                value = (
+                    unpacked_data[1]
+                    + 2**64 * unpacked_data[2]
+                    + 2**128 * unpacked_data[3]
+                    + 2**192 * unpacked_data[4]
+                ) % DEFAULT_PRIME
+                value = value if value < DEFAULT_PRIME // 2 else value - DEFAULT_PRIME
+                # TODO: remove and handle bigger values
+                value = (value + 2**127) % 2**128 - 2**127
 
                 chunk_addresses.append(address)
-                chunk_value.append(value_tuple)
+                chunk_value.append(value)
 
             if chunk_addresses:
                 chunk_df = pl.DataFrame(

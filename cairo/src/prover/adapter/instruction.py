@@ -10,9 +10,9 @@ _COL_OFFSET1 = "offset1"
 _COL_OFFSET2 = "offset2"
 _COL_DST_BASE_FP = "dst_base_fp"
 _COL_OP0_BASE_FP = "op0_base_fp"
-_COL_OP_1_IMM = "op_1_imm"
-_COL_OP_1_BASE_FP = "op_1_base_fp"
-_COL_OP_1_BASE_AP = "op_1_base_ap"
+_COL_OP1_IMM = "op_1_imm"
+_COL_OP1_BASE_FP = "op_1_base_fp"
+_COL_OP1_BASE_AP = "op_1_base_ap"
 _COL_RES_ADD = "res_add"
 _COL_RES_MUL = "res_mul"
 _COL_PC_UPDATE_JUMP = "pc_update_jump"
@@ -82,13 +82,13 @@ _current_flags_expr = _current_flags_expr.floordiv(2)
 OP0_BASE_FP = (_current_flags_expr & 1).cast(pl.Boolean).alias(_COL_OP0_BASE_FP)
 _current_flags_expr = _current_flags_expr.floordiv(2)
 
-OP_1_IMM = (_current_flags_expr & 1).cast(pl.Boolean).alias(_COL_OP_1_IMM)
+OP1_IMM = (_current_flags_expr & 1).cast(pl.Boolean).alias(_COL_OP1_IMM)
 _current_flags_expr = _current_flags_expr.floordiv(2)
 
-OP_1_BASE_FP = (_current_flags_expr & 1).cast(pl.Boolean).alias(_COL_OP_1_BASE_FP)
+OP1_BASE_FP = (_current_flags_expr & 1).cast(pl.Boolean).alias(_COL_OP1_BASE_FP)
 _current_flags_expr = _current_flags_expr.floordiv(2)
 
-OP_1_BASE_AP = (_current_flags_expr & 1).cast(pl.Boolean).alias(_COL_OP_1_BASE_AP)
+OP1_BASE_AP = (_current_flags_expr & 1).cast(pl.Boolean).alias(_COL_OP1_BASE_AP)
 _current_flags_expr = _current_flags_expr.floordiv(2)
 
 RES_ADD = (_current_flags_expr & 1).cast(pl.Boolean).alias(_COL_RES_ADD)
