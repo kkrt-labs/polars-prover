@@ -68,20 +68,22 @@ state_transitions = (
 )
 
 # %% Witnesses
-add_small_witness = state_transitions.select(ADD_SMALL_OPCODE)
+add_small_witness = state_transitions.filter(pl.col(_COL_OPCODE).eq(ADD_OPCODE)).select(
+    ADD_SMALL_OPCODE
+)
 
 # %% Debug prints
 state_transitions.collect_schema()
-state_transitions.head().collect()
+state_transitions = state_transitions.collect()
+state_transitions.head()
 (
-    state_transitions.filter(pl.col(_COL_OPCODE).eq(ADD_OPCODE))
-    .select([*ADD_SMALL_OPCODE, _COL_OPCODE])
-    .head()
-    .collect()
+    state_transitions.filter(pl.col(_COL_OPCODE).eq(ADD_OPCODE)).select(
+        [*ADD_SMALL_OPCODE, _COL_OPCODE]
+    )
 )
 instructions_by_pc = state_transitions.unique("pc").select(
     ["pc", "encoded_instruction"]
 )
 trace.head().collect()
-state_transitions.head().collect()
-instructions_by_pc.head().collect()
+state_transitions.head()
+instructions_by_pc.head()

@@ -30,7 +30,7 @@ OP1_BASE = (
     .when(OP1_BASE_AP)
     .then(AP)
     .when(OP1_IMM)
-    .then(PC + 1)
+    .then(PC)
     .otherwise(OP0)
     .cast(pl.UInt32)
     .alias(_COL_OP1_BASE)
